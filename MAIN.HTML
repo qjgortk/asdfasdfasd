@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>의료 다이어리</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 40px;
+      background-color: #edf2f7;
+      color: #2d3748;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      color: #2b6cb0;
+      font-size: 36px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    h2 {
+      font-size: 28px;
+      margin-top: 40px;
+      color: #2c5282;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      margin-top: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    textarea, input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 20px;
+      font-size: 16px;
+      background: #2b6cb0;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      display: block;
+      width: 100%;
+    }
+    button:hover {
+      background: #2c5282;
+    }
+    .record {
+      background: white;
+      padding: 20px;
+      margin-top: 15px;
+      border-left: 5px solid #2b6cb0;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .record strong {
+      color: #2b6cb0;
+    }
+    /* 체크박스 크기 키우기 */
+    .record input[type="checkbox"] {
+      width: 25px;
+      height: 25px;
+      margin-right: 10px;
+      transform: scale(1.5); /* 체크박스를 1.5배 크기로 확대 */
+    }
+  </style>
+</head>
+<body>
+  <h1>🩺 나만의 의료 다이어리</h1>
+  <div class="card">
+    <label for="date">날짜</label>
+    <input type="date" id="date">
+
+    <label for="hospital">병원 이름</label>
+    <input type="text" id="hospital" placeholder="예: ○○내과">
+
+    <label for="reason">진료 사유</label>
+    <textarea id="reason" rows="2" placeholder="예: 기침이 심해서 방문"></textarea>
+
+    <label for="memo">기타 메모</label>
+    <textarea id="memo" rows="3" placeholder="받은 설명, 처방 등"></textarea>
+
+    <button onclick="saveEntry()">💾 기록 저장</button>
+  </div>
+
+  <h2>📋 기록 목록</h2>
+  <div id="records"></div>
+
+  <h2>📄 선택한 진료 기록 PDF로 저장</h2>
+  <button onclick="downloadPDF()">PDF로 저장</button>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    // 진료 기록을 로컬 저장소에 저장
+    function saveEntry() {
+      const date = document.getElementById('date').value;
+      const hospital = document.getElementById('hospital').value;
+      const reason = document.getElementById('reason').value;
+      const memo = document.getElementById('memo').value;
+
+      if (!date || !hospital || !reason) {
+        alert("날짜, 병원명, 진료 사유는 필수입니다.");
+        return;
+      }
+
+      const record = { date, hospital, reason, memo };
+      let records = JSON.parse(localStorage.getItem('medicalRecords')) || [];
+      records.push(record);
+      localStorage.setItem('medicalRecords', JSON.stringify(records));
+      displayRecords();
+    }
+
+    // 기록을 화면에 표시
+    function displayRecords() {
+      const container = document.getElementById('records');
+      container.innerHTML = '';
+      const records = JSON.parse(localStorage.getItem('medicalRecords')) || [];
+
+      records.slice().reverse().forEach((rec, index) => {
+        const div = document.createElement('div');
+        div.className = 'record';
+        div.innerHTML = `
+          <input type="checkbox" id="record-${index}">
+          <strong>${rec.date}</strong> - <em>${rec.hospital}</em><br>
+          <strong>사유:</strong> ${rec.reason}<br>
+          <strong>메모:</strong> ${rec.memo || '없음'}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // 선택된 진료 기록만 PDF로 다운로드
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      const records = JSON.parse(localStorage.getItem('medicalRecords')) || [];
+      const selectedRecords = [];
+
+      // 선택된 체크박스를 확인하여 선택된 기록을 배열에 추가
+      records.forEach((record, index) => {
+        const checkbox = document.getElementById(`record-${index}`);
+        if (checkbox && checkbox.checked) {
+          selectedRecords.push(record);
+        }
+      });
+
+      if (selectedRecords.length === 0) {
+        alert("선택된 진료 기록이 없습니다.");
+        return;
+      }
+
+      doc.setFontSize(12); // 폰트 크기 설정
+      doc.text("Selected Medical Records", 20, 20);
+
+      let yPosition = 30;  // 첫 번째 텍스트 시작 위치
+      selectedRecords.forEach((record, index) => {
+        doc.text(`Record #${index + 1}`, 20, yPosition);
+        yPosition += 10;
+        doc.text(`Date: ${record.date}`, 20, yPosition);
+        yPosition += 10;
+        doc.text(`Hospital: ${record.hospital}`, 20, yPosition);
+        yPosition += 10;
+        doc.text(`Reason for Visit: ${record.reason}`, 20, yPosition);
+        yPosition += 10;
+        doc.text(`Additional Notes: ${record.memo || 'None'}`, 20, yPosition);
+        yPosition += 20;
+
+        // 페이지가 너무 길어지면 새 페이지 추가
+        if (yPosition > 270) {
+          doc.addPage();
+          yPosition = 20; // 새 페이지의 시작 위치
+        }
+      });
+
+      // PDF 파일로 저장
+      doc.save("Selected_Medical_Records.pdf");
+    }
+
+    window.onload = displayRecords;  // 페이지 로드 시 기록 불러오기
+  </script>
+</body>
+</html>
